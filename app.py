@@ -861,9 +861,18 @@ def make_admin():
     session["role"] = "admin"
 
     return redirect(url_for("dashboard"))
-if __name__ == "__main__":
+# =========================================================
+# INITIALIZE DATABASE
+# =========================================================
 
-    initialize_database()
+initialize_database()
+
+
+# =========================================================
+# START SERVER
+# =========================================================
+
+if __name__ == "__main__":
 
     print("")
     print("=" * 60)
