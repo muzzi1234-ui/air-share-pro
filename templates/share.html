@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Share File | AIR SHARE PRO</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+
+            font-family: Inter, system-ui, sans-serif;
+
+            background:
+                radial-gradient(
+                    circle at 20% 10%,
+                    rgba(213,183,124,.18),
+                    transparent 30%
+                ),
+                radial-gradient(
+                    circle at 90% 90%,
+                    rgba(93,123,99,.15),
+                    transparent 30%
+                ),
+                #f3f3ed;
+
+            color: #29352d;
+        }
+
+        .card {
+            width: min(560px, 100%);
+            padding: 38px;
+
+            background: rgba(255,255,255,.92);
+
+            border: 1px solid rgba(39,51,42,.09);
+            border-radius: 28px;
+
+            box-shadow:
+                0 25px 70px rgba(31,46,36,.10);
+
+            text-align: center;
+        }
+
+        .icon {
+            width: 65px;
+            height: 65px;
+
+            margin: 0 auto 18px;
+
+            display: grid;
+            place-items: center;
+
+            border-radius: 20px;
+
+            background: linear-gradient(
+                145deg,
+                #ead5a7,
+                #b99357
+            );
+
+            font-size: 28px;
+        }
+
+        .eyebrow {
+            color: #a78650;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: 2px;
+        }
+
+        h1 {
+            margin-top: 8px;
+
+            font-size: 30px;
+            letter-spacing: -1px;
+        }
+
+        .filename {
+            margin-top: 12px;
+
+            color: #737d75;
+            font-size: 12px;
+            font-weight: 700;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .share-box {
+            display: flex;
+            gap: 8px;
+
+            margin-top: 28px;
+            padding: 7px;
+
+            background: #f2f3ee;
+
+            border: 1px solid rgba(39,51,42,.08);
+            border-radius: 14px;
+        }
+
+        .share-box input {
+            flex: 1;
+
+            min-width: 0;
+
+            padding: 12px;
+
+            border: 0;
+            outline: 0;
+
+            background: transparent;
+
+            color: #59645c;
+            font-size: 11px;
+        }
+
+        button {
+            border: 0;
+            cursor: pointer;
+
+            padding: 12px 17px;
+
+            border-radius: 10px;
+
+            background: #344a3a;
+            color: white;
+
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: .5px;
+
+            transition: .2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            background: #273a2d;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+
+            margin-top: 22px;
+        }
+
+        .actions a {
+            padding: 11px 16px;
+
+            border-radius: 11px;
+
+            text-decoration: none;
+
+            color: #68736a;
+            background: #f1f2ed;
+
+            font-size: 9px;
+            font-weight: 900;
+        }
+
+        .status {
+            min-height: 18px;
+            margin-top: 13px;
+
+            color: #607d62;
+
+            font-size: 9px;
+            font-weight: 800;
+        }
+
+        footer {
+            margin-top: 28px;
+
+            color: #a0a69f;
+
+            font-size: 8px;
+            letter-spacing: 1px;
+        }
+
+        footer strong {
+            color: #69736c;
+        }
+
+        @media(max-width: 500px) {
+            .card {
+                padding: 27px 20px;
+            }
+
+            .share-box {
+                flex-direction: column;
+            }
+
+            .share-box button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="card">
+
+    <div class="icon">
+        🔗
+    </div>
+
+    <div class="eyebrow">
+        SECURE FILE SHARING
+    </div>
+
+    <h1>
+        Share File
+    </h1>
+
+    <div class="filename">
+        {{ file.original_name }}
+    </div>
+
+    <div class="share-box">
+
+        <input
+            id="shareLink"
+            type="text"
+            value="{{ share_url }}"
+            readonly
+        >
+
+        <button
+            onclick="copyShareLink()"
+        >
+            COPY LINK
+        </button>
+
+    </div>
+
+    <div
+        id="status"
+        class="status"
+    ></div>
+
+    <div class="actions">
+
+        <a href="{{ url_for('dashboard') }}">
+            ← DASHBOARD
+        </a>
+
+        <a href="{{ share_url }}">
+            OPEN FILE
+        </a>
+
+    </div>
+
+    <footer>
+        AIR SHARE PRO ·
+        <strong>PROJECT BY MUZAMMIL KHALID</strong>
+    </footer>
+
+</div>
+
+
+<script>
+function copyShareLink() {
+
+    const input =
+        document.getElementById("shareLink");
+
+    const status =
+        document.getElementById("status");
+
+    navigator.clipboard.writeText(input.value)
+        .then(() => {
+
+            status.textContent =
+                "✓ SHARE LINK COPIED";
+
+        })
+        .catch(() => {
+
+            input.select();
+
+            document.execCommand("copy");
+
+            status.textContent =
+                "✓ SHARE LINK COPIED";
+
+        });
+}
+</script>
+
+</body>
+</html>

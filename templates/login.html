@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AIR SHARE PRO — MUZAMMIL KHALID</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --dark: #101713;
+            --dark-2: #18221c;
+            --green: #26362b;
+            --green-2: #344a3a;
+            --gold: #d5b77c;
+            --gold-light: #f0dfb9;
+            --cream: #f7f3ea;
+            --text: #263128;
+            --muted: #7b837c;
+            --white: #ffffff;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            padding: 25px;
+            overflow-x: hidden;
+
+            background:
+                radial-gradient(
+                    circle at 5% 5%,
+                    rgba(213,183,124,.22),
+                    transparent 25%
+                ),
+                radial-gradient(
+                    circle at 95% 90%,
+                    rgba(106,135,111,.20),
+                    transparent 30%
+                ),
+                linear-gradient(
+                    135deg,
+                    #f8f5ee,
+                    #e9e8df
+                );
+
+            color: var(--text);
+        }
+
+        /* =========================
+           BACKGROUND
+        ========================= */
+
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            filter: blur(2px);
+        }
+
+        .orb.one {
+            width: 420px;
+            height: 420px;
+            top: -210px;
+            left: -160px;
+            background: rgba(213,183,124,.12);
+        }
+
+        .orb.two {
+            width: 480px;
+            height: 480px;
+            bottom: -260px;
+            right: -190px;
+            background: rgba(116,142,120,.12);
+        }
+
+        /* =========================
+           MAIN
+        ========================= */
+
+        .app {
+            width: min(1160px, 100%);
+            min-height: 700px;
+
+            display: grid;
+            grid-template-columns: 1.05fr .95fr;
+
+            border-radius: 34px;
+            overflow: hidden;
+
+            background: rgba(255,255,255,.65);
+
+            border: 1px solid rgba(255,255,255,.85);
+
+            box-shadow:
+                0 35px 90px rgba(28,39,31,.15),
+                0 10px 35px rgba(28,39,31,.07);
+
+            backdrop-filter: blur(25px);
+
+            animation: pageIn .7s ease both;
+        }
+
+        @keyframes pageIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(.985);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* =========================
+           LEFT
+        ========================= */
+
+        .hero {
+            position: relative;
+            overflow: hidden;
+
+            padding: 52px;
+
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+
+            color: white;
+
+            background:
+                radial-gradient(
+                    circle at 80% 10%,
+                    rgba(213,183,124,.14),
+                    transparent 25%
+                ),
+                linear-gradient(
+                    145deg,
+                    #34493a,
+                    #26362b 55%,
+                    #17221b
+                );
+        }
+
+        .hero::before {
+            content: "";
+
+            position: absolute;
+
+            width: 500px;
+            height: 500px;
+
+            right: -300px;
+            top: -230px;
+
+            border-radius: 50%;
+
+            border: 1px solid rgba(255,255,255,.09);
+
+            box-shadow:
+                0 0 0 55px rgba(255,255,255,.025),
+                0 0 0 110px rgba(255,255,255,.018),
+                0 0 0 165px rgba(255,255,255,.012);
+        }
+
+        .hero::after {
+            content: "";
+
+            position: absolute;
+
+            width: 300px;
+            height: 300px;
+
+            left: -180px;
+            bottom: -180px;
+
+            border-radius: 50%;
+
+            background: rgba(213,183,124,.08);
+            filter: blur(15px);
+        }
+
+        /* =========================
+           CREATOR
+        ========================= */
+
+        .creator {
+            position: absolute;
+
+            top: 28px;
+            right: 28px;
+
+            z-index: 5;
+
+            display: flex;
+            align-items: center;
+            gap: 9px;
+
+            padding: 9px 14px;
+
+            border-radius: 999px;
+
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.12);
+
+            backdrop-filter: blur(14px);
+
+            font-size: 9px;
+            font-weight: 800;
+
+            letter-spacing: 1.3px;
+
+            color: rgba(255,255,255,.72);
+
+            box-shadow:
+                0 10px 30px rgba(0,0,0,.12);
+        }
+
+        .creator::before {
+            content: "";
+
+            width: 6px;
+            height: 6px;
+
+            border-radius: 50%;
+
+            background: var(--gold);
+
+            box-shadow:
+                0 0 0 5px rgba(213,183,124,.08);
+        }
+
+        .creator strong {
+            color: var(--gold-light);
+            font-weight: 900;
+        }
+
+        /* =========================
+           BRAND
+        ========================= */
+
+        .brand {
+            position: relative;
+            z-index: 3;
+
+            display: flex;
+            align-items: center;
+
+            gap: 13px;
+        }
+
+        .brand-logo {
+            width: 50px;
+            height: 50px;
+
+            display: grid;
+            place-items: center;
+
+            border-radius: 16px;
+
+            color: #27372b;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    #ead5a7,
+                    #b99357
+                );
+
+            box-shadow:
+                0 15px 35px rgba(0,0,0,.20);
+        }
+
+        .brand-logo svg {
+            width: 25px;
+            height: 25px;
+        }
+
+        .brand-name {
+            font-size: 20px;
+            font-weight: 900;
+
+            letter-spacing: 1px;
+
+            text-transform: uppercase;
+        }
+
+        .brand-name span {
+            color: var(--gold);
+        }
+
+        /* =========================
+           HERO CONTENT
+        ========================= */
+
+        .hero-content {
+            position: relative;
+            z-index: 3;
+
+            max-width: 530px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+
+            padding: 9px 13px;
+
+            margin-bottom: 23px;
+
+            border-radius: 999px;
+
+            background: rgba(255,255,255,.065);
+            border: 1px solid rgba(255,255,255,.09);
+
+            color: #ccd7cd;
+
+            font-size: 10px;
+            font-weight: 800;
+
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .badge-dot {
+            width: 7px;
+            height: 7px;
+
+            border-radius: 50%;
+
+            background: #b9d19e;
+
+            box-shadow:
+                0 0 0 5px rgba(185,209,158,.08);
+
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%,100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(.75);
+                opacity: .55;
+            }
+        }
+
+        .hero h1 {
+            font-size: clamp(44px, 5vw, 68px);
+
+            line-height: .98;
+
+            letter-spacing: -4px;
+
+            margin-bottom: 25px;
+        }
+
+        .hero h1 span {
+            color: var(--gold);
+        }
+
+        .hero-description {
+            max-width: 470px;
+
+            color: #aeb9af;
+
+            font-size: 14px;
+
+            line-height: 1.85;
+        }
+
+        /* =========================
+           FEATURES
+        ========================= */
+
+        .features {
+            display: grid;
+
+            grid-template-columns: repeat(2,1fr);
+
+            gap: 11px;
+
+            margin-top: 34px;
+        }
+
+        .feature {
+            min-height: 70px;
+
+            display: flex;
+            align-items: center;
+
+            gap: 12px;
+
+            padding: 13px;
+
+            border-radius: 16px;
+
+            background: rgba(255,255,255,.055);
+
+            border: 1px solid rgba(255,255,255,.08);
+
+            transition:
+                .25s ease;
+        }
+
+        .feature:hover {
+            transform: translateY(-4px);
+
+            background: rgba(255,255,255,.09);
+
+            border-color: rgba(213,183,124,.18);
+        }
+
+        .feature-icon {
+            width: 36px;
+            height: 36px;
+
+            flex-shrink: 0;
+
+            display: grid;
+            place-items: center;
+
+            border-radius: 11px;
+
+            background: rgba(213,183,124,.12);
+
+            color: var(--gold);
+        }
+
+        .feature-icon svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .feature strong {
+            display: block;
+
+            color: #e5ebe5;
+
+            font-size: 11px;
+
+            margin-bottom: 3px;
+        }
+
+        .feature span {
+            color: #87948a;
+
+            font-size: 10px;
+        }
+
+        /* =========================
+           NETWORK
+        ========================= */
+
+        .network {
+            position: relative;
+            z-index: 3;
+
+            display: flex;
+            align-items: center;
+            gap: 9px;
+
+            color: #89978d;
+
+            font-size: 11px;
+        }
+
+        .network-dot {
+            width: 8px;
+            height: 8px;
+
+            border-radius: 50%;
+
+            background: #b8d29d;
+
+            box-shadow:
+                0 0 0 5px rgba(184,210,157,.08);
+        }
+
+        /* =========================
+           LOGIN
+        ========================= */
+
+        .login {
+            position: relative;
+
+            padding: 58px;
+
+            display: flex;
+            align-items: center;
+
+            background: rgba(255,255,255,.58);
+        }
+
+        .login::after {
+            content: "";
+
+            position: absolute;
+
+            width: 300px;
+            height: 300px;
+
+            right: -180px;
+            bottom: -180px;
+
+            border-radius: 50%;
+
+            background: rgba(116,142,120,.08);
+        }
+
+        .login-box {
+            position: relative;
+            z-index: 2;
+
+            width: 100%;
+            max-width: 400px;
+
+            margin: auto;
+        }
+
+        .eyebrow {
+            color: #8a928a;
+
+            font-size: 10px;
+            font-weight: 800;
+
+            text-transform: uppercase;
+
+            letter-spacing: 1.7px;
+
+            margin-bottom: 10px;
+        }
+
+        .login h2 {
+            color: #263128;
+
+            font-size: 36px;
+
+            letter-spacing: -1.8px;
+
+            margin-bottom: 9px;
+        }
+
+        .login-subtitle {
+            color: var(--muted);
+
+            font-size: 13px;
+
+            line-height: 1.7;
+
+            margin-bottom: 30px;
+        }
+
+        /* =========================
+           FLASH
+        ========================= */
+
+        .flash {
+            padding: 13px 15px;
+
+            margin-bottom: 18px;
+
+            border-radius: 13px;
+
+            font-size: 12px;
+
+            border: 1px solid rgba(39,51,42,.08);
+
+            animation: flashIn .35s ease;
+        }
+
+        @keyframes flashIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .flash.success {
+            background: rgba(137,164,120,.13);
+            color: #55704c;
+        }
+
+        .flash.danger {
+            background: rgba(190,110,100,.12);
+            color: #985b54;
+        }
+
+        .flash.warning {
+            background: rgba(204,168,96,.14);
+            color: #8b6b35;
+        }
+
+        /* =========================
+           FIELDS
+        ========================= */
+
+        .field {
+            margin-bottom: 19px;
+        }
+
+        .field label {
+            display: block;
+
+            margin-bottom: 8px;
+
+            color: #4d584f;
+
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-wrap input {
+            width: 100%;
+            height: 57px;
+
+            padding: 0 48px;
+
+            border-radius: 15px;
+
+            border: 1px solid rgba(39,51,42,.12);
+
+            outline: none;
+
+            background: rgba(255,255,255,.72);
+
+            color: #263128;
+
+            font-size: 13px;
+
+            transition:
+                .25s ease;
+        }
+
+        .input-wrap input:hover {
+            border-color: rgba(39,51,42,.20);
+        }
+
+        .input-wrap input:focus {
+            border-color: rgba(116,142,120,.65);
+
+            background: white;
+
+            box-shadow:
+                0 0 0 4px rgba(116,142,120,.10),
+                0 12px 25px rgba(39,51,42,.05);
+        }
+
+        .input-wrap input::placeholder {
+            color: #a1a7a2;
+        }
+
+        .icon {
+            position: absolute;
+
+            left: 16px;
+            top: 50%;
+
+            transform: translateY(-50%);
+
+            color: #89938a;
+
+            pointer-events: none;
+        }
+
+        .icon svg {
+            width: 17px;
+            height: 17px;
+        }
+
+        .eye {
+            position: absolute;
+
+            right: 12px;
+            top: 50%;
+
+            transform: translateY(-50%);
+
+            width: 33px;
+            height: 33px;
+
+            display: grid;
+            place-items: center;
+
+            border: 0;
+            border-radius: 10px;
+
+            background: transparent;
+
+            color: #89938a;
+
+            cursor: pointer;
+
+            transition: .2s ease;
+        }
+
+        .eye:hover {
+            background: rgba(39,51,42,.07);
+            color: #344a3a;
+        }
+
+        .eye svg {
+            width: 17px;
+            height: 17px;
+        }
+
+        /* =========================
+           BUTTON
+        ========================= */
+
+        .submit {
+            position: relative;
+
+            width: 100%;
+            height: 57px;
+
+            margin-top: 6px;
+
+            border: 0;
+            border-radius: 15px;
+
+            cursor: pointer;
+
+            overflow: hidden;
+
+            color: #f7f3ea;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #3a5140,
+                    #202d25
+                );
+
+            font-size: 13px;
+            font-weight: 850;
+
+            box-shadow:
+                0 16px 32px rgba(31,46,36,.20);
+
+            transition:
+                transform .25s ease,
+                box-shadow .25s ease;
+        }
+
+        .submit::before {
+            content: "";
+
+            position: absolute;
+
+            top: 0;
+            left: -100%;
+
+            width: 60%;
+            height: 100%;
+
+            transform: skewX(-20deg);
+
+            background: rgba(255,255,255,.12);
+
+            transition: .7s ease;
+        }
+
+        .submit:hover {
+            transform: translateY(-3px);
+
+            box-shadow:
+                0 21px 40px rgba(31,46,36,.25);
+        }
+
+        .submit:hover::before {
+            left: 130%;
+        }
+
+        .submit:active {
+            transform: translateY(-1px);
+        }
+
+        .submit-content {
+            position: relative;
+            z-index: 2;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            gap: 9px;
+        }
+
+        .submit svg {
+            width: 17px;
+            height: 17px;
+        }
+
+        /* =========================
+           FOOTER
+        ========================= */
+
+        .security {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            gap: 7px;
+
+            margin-top: 20px;
+
+            color: #929a93;
+
+            font-size: 10px;
+        }
+
+        .security svg {
+            width: 13px;
+            height: 13px;
+        }
+
+        .developer {
+            margin-top: 23px;
+
+            padding: 13px;
+
+            text-align: center;
+
+            border-radius: 13px;
+
+            background: rgba(116,142,120,.07);
+
+            border: 1px solid rgba(116,142,120,.12);
+
+            color: #858d86;
+
+            font-size: 10px;
+
+            line-height: 1.7;
+        }
+
+        .developer strong {
+            color: #536056;
+        }
+
+        /* =========================
+           RESPONSIVE
+        ========================= */
+
+        @media (max-width: 900px) {
+
+            body {
+                padding: 14px;
+            }
+
+            .app {
+                grid-template-columns: 1fr;
+
+                max-width: 550px;
+
+                min-height: auto;
+            }
+
+            .hero {
+                min-height: 520px;
+
+                padding: 40px;
+            }
+
+            .login {
+                padding: 42px;
+            }
+        }
+
+        @media (max-width: 520px) {
+
+            body {
+                padding: 8px;
+            }
+
+            .app {
+                border-radius: 25px;
+            }
+
+            .hero {
+                min-height: 430px;
+
+                padding: 27px 22px;
+            }
+
+            .creator {
+                top: 16px;
+                right: 16px;
+
+                padding: 8px 10px;
+
+                font-size: 7px;
+            }
+
+            .brand-logo {
+                width: 43px;
+                height: 43px;
+            }
+
+            .brand-name {
+                font-size: 17px;
+            }
+
+            .hero h1 {
+                font-size: 39px;
+
+                letter-spacing: -2.5px;
+            }
+
+            .hero-description {
+                font-size: 12px;
+            }
+
+            .features {
+                gap: 7px;
+            }
+
+            .feature {
+                min-height: 57px;
+
+                padding: 9px;
+            }
+
+            .feature span {
+                display: none;
+            }
+
+            .feature-icon {
+                width: 30px;
+                height: 30px;
+            }
+
+            .login {
+                padding: 30px 22px;
+            }
+
+            .login h2 {
+                font-size: 30px;
+            }
+
+            .input-wrap input {
+                height: 55px;
+            }
+
+            .submit {
+                height: 55px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="orb one"></div>
+    <div class="orb two"></div>
+
+    <main class="app">
+
+        <!-- =========================
+             PREMIUM HERO
+        ========================== -->
+
+        <section class="hero">
+
+            <div class="creator">
+                PROJECT BY <strong>MUZAMMIL KHALID</strong>
+            </div>
+
+            <!-- BRAND -->
+
+            <div class="brand">
+
+                <div class="brand-logo">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M12 3v12"></path>
+                        <path d="m7 10 5 5 5-5"></path>
+                        <path d="M5 20h14"></path>
+                    </svg>
+
+                </div>
+
+                <div class="brand-name">
+                    AIR <span>SHARE</span>
+                </div>
+
+            </div>
+
+
+            <!-- HERO CONTENT -->
+
+            <div class="hero-content">
+
+                <div class="badge">
+                    <span class="badge-dot"></span>
+                    PRIVATE OFFICE WORKSPACE
+                </div>
+
+                <h1>
+                    Move files
+                    <br>
+                    <span>without limits.</span>
+                </h1>
+
+                <p class="hero-description">
+                    A beautifully simple workspace for sharing
+                    documents, media and important files across
+                    your private office network.
+                </p>
+
+
+                <!-- FEATURES -->
+
+                <div class="features">
+
+                    <div class="feature">
+
+                        <div class="feature-icon">
+
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                            >
+                                <path d="M12 3v12"></path>
+                                <path d="m7 10 5 5 5-5"></path>
+                                <path d="M5 20h14"></path>
+                            </svg>
+
+                        </div>
+
+                        <div>
+                            <strong>Fast Sharing</strong>
+                            <span>Local network speed</span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="feature">
+
+                        <div class="feature-icon">
+
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                            >
+                                <path d="M4 7h6l2 2h8v9a2 2 0 0 1-2 2H4z"></path>
+                            </svg>
+
+                        </div>
+
+                        <div>
+                            <strong>Central Files</strong>
+                            <span>One shared workspace</span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="feature">
+
+                        <div class="feature-icon">
+
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                            >
+                                <rect
+                                    x="5"
+                                    y="11"
+                                    width="14"
+                                    height="10"
+                                    rx="2"
+                                ></rect>
+
+                                <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                            </svg>
+
+                        </div>
+
+                        <div>
+                            <strong>Private</strong>
+                            <span>Office LAN only</span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="feature">
+
+                        <div class="feature-icon">
+
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                            >
+                                <path d="M3 12a9 9 0 0 1 18 0"></path>
+                                <path d="M6 12a6 6 0 0 1 12 0"></path>
+                                <path d="M9 12a3 3 0 0 1 6 0"></path>
+                            </svg>
+
+                        </div>
+
+                        <div>
+                            <strong>Wi-Fi Ready</strong>
+                            <span>No cloud required</span>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- NETWORK -->
+
+            <div class="network">
+                <span class="network-dot"></span>
+                Local network workspace is ready
+            </div>
+
+        </section>
+
+
+        <!-- =========================
+             LOGIN
+        ========================== -->
+
+        <section class="login">
+
+            <div class="login-box">
+
+                <div class="eyebrow">
+                    Workspace Access
+                </div>
+
+                <h2>
+                    Welcome back
+                </h2>
+
+                <p class="login-subtitle">
+                    Sign in to continue to your
+                    AIR SHARE workspace.
+                </p>
+
+
+                <!-- FLASH MESSAGES -->
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+
+                    {% if messages %}
+
+                        {% for category, message in messages %}
+
+                            <div class="flash {{ category }}">
+                                {{ message }}
+                            </div>
+
+                        {% endfor %}
+
+                    {% endif %}
+
+                {% endwith %}
+
+
+                <!-- LOGIN FORM -->
+
+                <form
+                    method="POST"
+                    action="{{ url_for('login') }}"
+                    autocomplete="on"
+                >
+
+                    <!-- USERNAME -->
+
+                    <div class="field">
+
+                        <div class="input-wrap">
+
+                            <span class="icon">
+
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                >
+                                    <circle
+                                        cx="12"
+                                        cy="7"
+                                        r="4"
+                                    ></circle>
+
+                                    <path
+                                        d="M4 21a8 8 0 0 1 16 0"
+                                    ></path>
+
+                                </svg>
+
+                            </span>
+
+                            <input
+                                id="username"
+                                name="username"
+                                type="text"
+                                placeholder="Enter your username"
+                                autocomplete="username"
+                                required
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- PASSWORD -->
+
+                    <div class="field">
+
+                        <label for="password">
+                            PASSWORD
+                        </label>
+
+                        <div class="input-wrap">
+
+                            <span class="icon">
+
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                >
+
+                                    <rect
+                                        x="4"
+                                        y="10"
+                                        width="16"
+                                        height="11"
+                                        rx="2"
+                                    ></rect>
+
+                                    <path
+                                        d="M8 10V7a4 4 0 0 1 8 0v3"
+                                    ></path>
+
+                                </svg>
+
+                            </span>
+
+
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                required
+                            >
+
+
+                            <button
+                                type="button"
+                                class="eye"
+                                id="togglePassword"
+                                aria-label="Show password"
+                            >
+
+                                <svg
+                                    id="eyeIcon"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+
+                                    <path
+                                        d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"
+                                    ></path>
+
+                                    <circle
+                                        cx="12"
+                                        cy="12"
+                                        r="2.5"
+                                    ></circle>
+
+                                </svg>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- LOGIN BUTTON -->
+
+                    <button
+                        class="submit"
+                        type="submit"
+                    >
+
+                        <span class="submit-content">
+
+                            Sign in to AIR SHARE
+
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path d="M5 12h14"></path>
+                                <path d="m13 6 6 6-6 6"></path>
+                            </svg>
+
+                        </span>
+
+                    </button>
+
+                </form>
+
+
+                <!-- SECURITY -->
+
+                <div class="security">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                    >
+
+                        <rect
+                            x="4"
+                            y="10"
+                            width="16"
+                            height="11"
+                            rx="2"
+                        ></rect>
+
+                        <path
+                            d="M8 10V7a4 4 0 0 1 8 0v3"
+                        ></path>
+
+                    </svg>
+
+                    Secure access on your private network
+
+                </div>
+
+
+                <!-- DEVELOPER -->
+
+                <div class="developer">
+
+                    Crafted with precision by
+                    <strong>MUZAMMIL KHALID</strong>
+
+                    <br>
+
+                    AIR SHARE PRO · Private File Workspace
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- =========================
+         JAVASCRIPT
+    ========================== -->
+
+    <script>
+
+        const password =
+            document.getElementById("password");
+
+        const toggle =
+            document.getElementById("togglePassword");
+
+        const eyeIcon =
+            document.getElementById("eyeIcon");
+
+
+        toggle.addEventListener("click", () => {
+
+            const hidden =
+                password.type === "password";
+
+            password.type =
+                hidden ? "text" : "password";
+
+            toggle.setAttribute(
+                "aria-label",
+                hidden
+                    ? "Hide password"
+                    : "Show password"
+            );
+
+            eyeIcon.innerHTML = hidden
+
+                ? `
+                    <path
+                        d="M3 3l18 18"
+                    ></path>
+
+                    <path
+                        d="M10.6 10.6a2 2 0 0 0 2.8 2.8"
+                    ></path>
+
+                    <path
+                        d="M9.9 5.2A10.8 10.8 0 0 1 12 5
+                        c6.5 0 10 7 10 7
+                        a17.3 17.3 0 0 1-3.1 3.8"
+                    ></path>
+
+                    <path
+                        d="M6.6 6.6C3.7 8.3 2 12 2 12
+                        s3.5 7 10 7
+                        c1.2 0 2.3-.2 3.3-.6"
+                    ></path>
+                `
+
+                : `
+                    <path
+                        d="M2 12s3.5-6 10-6
+                        10 6 10 6-3.5 6-10 6
+                        S2 12 2 12z"
+                    ></path>
+
+                    <circle
+                        cx="12"
+                        cy="12"
+                        r="2.5"
+                    ></circle>
+                `;
+
+        });
+
+
+        /* =========================
+           LOGIN LOADING
+        ========================== */
+
+        const form =
+            document.querySelector("form");
+
+        const submit =
+            document.querySelector(".submit");
+
+
+        form.addEventListener("submit", () => {
+
+            submit.style.opacity = "0.82";
+
+            submit.style.pointerEvents = "none";
+
+            submit.querySelector(
+                ".submit-content"
+            ).innerHTML = `
+                Signing in...
+            `;
+
+        });
+
+    </script>
+
+</body>
+</html>
