@@ -32,13 +32,20 @@ import socket
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = "air-share-pro-change-this-key"
+database_url = os.environ.get("DATABASE_URL")
 
-if os.environ.get("VERCEL"):
-    app.instance_path = "/tmp"
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/airshare.db"
+if database_url:
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace(
+            "postgres://",
+            "postgresql://",
+            1
+        )
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+
 else:
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///airshare.db"
-
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Maximum upload size: 500 MB
@@ -936,54 +943,10 @@ def too_large(error):
 # =========================================================
 # DATABASE INITIALIZATION
 # =========================================================
-
 def initialize_database():
 
     with app.app_context():
-
-        # Create all tables that don't exist
         db.create_all()
-
-        try:
-
-            # Check existing SQLite file table
-            result = db.session.execute(
-                db.text(
-                    "PRAGMA table_info(file)"
-                )
-            ).fetchall()
-
-            columns = [
-                row[1]
-                for row in result
-            ]
-
-            # Add network_id if old database doesn't have it
-            if "network_id" not in columns:
-
-                db.session.execute(
-                    db.text(
-                        "ALTER TABLE file "
-                        "ADD COLUMN network_id VARCHAR(255)"
-                    )
-                )
-
-                db.session.commit()
-
-                print(
-                    "Database migration: "
-                    "network_id added to file table."
-                )
-
-        except Exception as e:
-
-            db.session.rollback()
-
-            print(
-                "Database migration error:",
-                e
-            )
-
 
 # =========================================================
 # LAN AUTO DISCOVERY
