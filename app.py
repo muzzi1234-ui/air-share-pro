@@ -29,19 +29,20 @@ import socket
 # =========================================================
 # APP CONFIG
 # =========================================================
-
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = "air-share-pro-change-this-key"
+
 if os.environ.get("VERCEL"):
+    app.instance_path = "/tmp"
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/airshare.db"
 else:
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///airshare.db"
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Maximum upload size: 500 MB
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
-
 db = SQLAlchemy(app)
 
 
