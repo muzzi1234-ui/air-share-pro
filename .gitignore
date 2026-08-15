@@ -1,3 +1,4 @@
 shared_files/
 airshare.db
 .venv/
+instance/airshare.db
