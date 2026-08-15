@@ -35,12 +35,15 @@ db = SQLAlchemy(app)
 # =========================================================
 # FILE STORAGE
 # =========================================================
-
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_FOLDER = BASE_DIR / "shared_files"
 
-UPLOAD_FOLDER.mkdir(exist_ok=True)
+# Vercel/serverless writable temporary directory
+if os.getenv("VERCEL"):
+    UPLOAD_FOLDER = Path("/tmp/air-share-files")
+else:
+    UPLOAD_FOLDER = BASE_DIR / "shared_files"
 
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {
     "pdf", "doc", "docx", "xls", "xlsx",
