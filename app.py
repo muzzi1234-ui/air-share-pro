@@ -3,14 +3,16 @@ from flask import (
     url_for, session, flash, send_from_directory, jsonify
 )
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 import os
 import uuid
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from zeroconf import ServiceInfo, Zeroconf
+import socket
 
 
 # =========================================================
@@ -20,6 +22,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = "air-share-pro-change-this-key"
+
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///airshare.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -27,6 +30,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
 
 db = SQLAlchemy(app)
+
 
 # =========================================================
 # FILE STORAGE
@@ -36,6 +40,7 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_FOLDER = BASE_DIR / "shared_files"
 
 UPLOAD_FOLDER.mkdir(exist_ok=True)
+
 
 ALLOWED_EXTENSIONS = {
     "pdf", "doc", "docx", "xls", "xlsx",
@@ -52,7 +57,11 @@ ALLOWED_EXTENSIONS = {
 # =========================================================
 
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True
+    )
 
     username = db.Column(
         db.String(80),
@@ -93,7 +102,19 @@ class User(db.Model):
 
 
 class File(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True
+    )
+
+    # IMPORTANT:
+    # Each network gets its own workspace
+    network_id = db.Column(
+        db.String(255),
+        nullable=False,
+        index=True
+    )
 
     original_name = db.Column(
         db.String(255),
@@ -126,7 +147,17 @@ class File(db.Model):
 
 
 class Activity(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True
+    )
+
+    network_id = db.Column(
+        db.String(255),
+        nullable=False,
+        index=True
+    )
 
     username = db.Column(
         db.String(80)
@@ -147,10 +178,90 @@ class Activity(db.Model):
 
 
 # =========================================================
+# NETWORK IDENTIFICATION
+# =========================================================
+
+def get_client_ip():
+
+    # Cloudflare sends the real visitor IP here
+    cf_ip = request.headers.get("CF-Connecting-IP")
+
+    if cf_ip:
+        return cf_ip.strip()
+
+    # Other reverse proxies
+    forwarded = request.headers.get("X-Forwarded-For")
+
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+
+    return request.remote_addr or "unknown"
+
+
+def get_network_id():
+
+    ip = get_client_ip()
+
+    # -----------------------------------------------------
+    # LOCAL LAN
+    # -----------------------------------------------------
+
+    # 192.168.x.x
+    if ip.startswith("192.168."):
+
+        parts = ip.split(".")
+
+        if len(parts) == 4:
+            return f"lan-192.168.{parts[2]}"
+
+
+    # 10.x.x.x
+    if ip.startswith("10."):
+
+        parts = ip.split(".")
+
+        if len(parts) == 4:
+            return f"lan-10.{parts[1]}.{parts[2]}"
+
+
+    # 172.16.x.x - 172.31.x.x
+    if ip.startswith("172."):
+
+        parts = ip.split(".")
+
+        if len(parts) == 4:
+
+            try:
+                second = int(parts[1])
+
+                if 16 <= second <= 31:
+                    return f"lan-172.{parts[1]}.{parts[2]}"
+
+            except ValueError:
+                pass
+
+
+    # -----------------------------------------------------
+    # PUBLIC / CLOUDFLARE
+    # -----------------------------------------------------
+
+    # For Cloudflare/internet access we use the client
+    # public IP as the workspace identity.
+    #
+    # Devices behind the same internet connection normally
+    # share this public IP.
+    #
+    # Direct LAN access gives actual LAN isolation above.
+
+    return f"public-{ip}"
+
+
+# =========================================================
 # HELPERS
 # =========================================================
 
 def allowed_file(filename):
+
     return (
         "." in filename
         and filename.rsplit(".", 1)[1].lower()
@@ -159,12 +270,15 @@ def allowed_file(filename):
 
 
 def get_extension(filename):
+
     if "." in filename:
         return filename.rsplit(".", 1)[1].lower()
+
     return "file"
 
 
 def format_size(size):
+
     if size < 1024:
         return f"{size} B"
 
@@ -182,52 +296,56 @@ def filesize_filter(size):
     return format_size(size)
 
 
+# =========================================================
+# GUEST USER
+# =========================================================
+
 def current_user():
-    user_id = session.get("user_id")
 
-    if not user_id:
-        return None
+    # No login required anymore.
+    # This fake user keeps existing dashboard templates working.
 
-    return db.session.get(User, user_id)
+    return SimpleNamespace(
+        id=0,
+        username="Guest",
+        role="user",
+        can_upload=True,
+        can_download=True,
+        can_delete=True
+    )
 
 
 def login_required(func):
+
     @wraps(func)
     def wrapper(*args, **kwargs):
 
-        if not session.get("user_id"):
-            flash("Please login first.", "warning")
-            return redirect(url_for("login"))
-
+        # LOGIN COMPLETELY DISABLED
         return func(*args, **kwargs)
 
     return wrapper
 
 
 def admin_required(func):
+
     @wraps(func)
     def wrapper(*args, **kwargs):
 
-        user = current_user()
-
-        if not user:
-            return redirect(url_for("login"))
-
-        if user.role != "admin":
-            flash("Administrator access required.", "danger")
-            return redirect(url_for("dashboard"))
-
+        # Admin panel disabled for public Air Share mode.
         return func(*args, **kwargs)
 
     return wrapper
 
 
+# =========================================================
+# ACTIVITY
+# =========================================================
+
 def log_activity(action, filename=None):
 
-    user = current_user()
-
     activity = Activity(
-        username=user.username if user else "System",
+        network_id=get_network_id(),
+        username="Guest",
         action=action,
         filename=filename
     )
@@ -237,69 +355,38 @@ def log_activity(action, filename=None):
 
 
 # =========================================================
-# LOGIN
+# HOME
 # =========================================================
 
 @app.route("/", methods=["GET"])
 def index():
 
-    if session.get("user_id"):
-        return redirect(url_for("dashboard"))
+    return redirect(
+        url_for("dashboard")
+    )
 
-    return redirect(url_for("login"))
 
+# =========================================================
+# OLD LOGIN ROUTES
+# =========================================================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
-    if request.method == "POST":
-
-        username = request.form.get(
-            "username",
-            ""
-        ).strip()
-
-        password = request.form.get(
-            "password",
-            ""
-        )
-
-        user = User.query.filter_by(
-            username=username
-        ).first()
-
-        if not user or not check_password_hash(
-            user.password_hash,
-            password
-        ):
-            flash(
-                "Invalid username or password.",
-                "danger"
-            )
-
-            return redirect(url_for("login"))
-
-        session.clear()
-
-        session["user_id"] = user.id
-        session["role"] = user.role
-
-        log_activity("Logged in")
-
-        return redirect(url_for("dashboard"))
-
-    return render_template("login.html")
+    # Login is no longer required.
+    return redirect(
+        url_for("dashboard")
+    )
 
 
 @app.route("/logout")
-@login_required
 def logout():
-
-    log_activity("Logged out")
 
     session.clear()
 
-    return redirect(url_for("login"))
+    return redirect(
+        url_for("dashboard")
+    )
 
 
 # =========================================================
@@ -310,16 +397,18 @@ def logout():
 @login_required
 def dashboard():
 
-    user = current_user()
+    network_id = get_network_id()
 
     search = request.args.get(
         "search",
         ""
     ).strip()
 
+
     if search:
 
         files = File.query.filter(
+            File.network_id == network_id,
             File.original_name.ilike(
                 f"%{search}%"
             )
@@ -329,23 +418,35 @@ def dashboard():
 
     else:
 
-        files = File.query.order_by(
+        files = File.query.filter(
+            File.network_id == network_id
+        ).order_by(
             File.uploaded_at.desc()
         ).all()
 
-    total_files = File.query.count()
+
+    total_files = File.query.filter(
+        File.network_id == network_id
+    ).count()
+
 
     total_size = db.session.query(
         db.func.sum(File.size)
+    ).filter(
+        File.network_id == network_id
     ).scalar() or 0
 
-    recent_activity = Activity.query.order_by(
+
+    recent_activity = Activity.query.filter(
+        Activity.network_id == network_id
+    ).order_by(
         Activity.created_at.desc()
     ).limit(10).all()
 
+
     return render_template(
         "dashboard.html",
-        user=user,
+        user=current_user(),
         files=files,
         total_files=total_files,
         total_size=total_size,
@@ -362,39 +463,45 @@ def dashboard():
 @login_required
 def upload():
 
-    user = current_user()
+    uploaded_files = request.files.getlist(
+        "files"
+    )
 
-    if not user.can_upload:
-        flash(
-            "You do not have upload permission.",
-            "danger"
-        )
-
-        return redirect(url_for("dashboard"))
-
-    uploaded_files = request.files.getlist("files")
 
     if not uploaded_files:
+
         flash(
             "Please select at least one file.",
             "warning"
         )
 
-        return redirect(url_for("dashboard"))
+        return redirect(
+            url_for("dashboard")
+        )
+
+
+    network_id = get_network_id()
 
     success_count = 0
 
+
     for uploaded_file in uploaded_files:
 
-        if not uploaded_file or not uploaded_file.filename:
+        if not uploaded_file:
             continue
+
+        if not uploaded_file.filename:
+            continue
+
 
         filename = secure_filename(
             uploaded_file.filename
         )
 
+
         if not filename:
             continue
+
 
         if not allowed_file(filename):
 
@@ -405,39 +512,73 @@ def upload():
 
             continue
 
-        extension = get_extension(filename)
+
+        extension = get_extension(
+            filename
+        )
+
 
         unique_name = (
             f"{uuid.uuid4().hex}_{filename}"
         )
 
-        destination = UPLOAD_FOLDER / unique_name
 
-        uploaded_file.save(destination)
+        destination = (
+            UPLOAD_FOLDER / unique_name
+        )
+
+
+        uploaded_file.save(
+            destination
+        )
+
 
         file_size = destination.stat().st_size
 
+
         new_file = File(
+
+            network_id=network_id,
+
             original_name=filename,
+
             stored_name=unique_name,
+
             size=file_size,
+
             extension=extension,
-            uploaded_by=user.username
+
+            uploaded_by="Guest"
         )
 
-        db.session.add(new_file)
+
+        db.session.add(
+            new_file
+        )
+
 
         activity = Activity(
-            username=user.username,
+
+            network_id=network_id,
+
+            username="Guest",
+
             action="Uploaded",
+
             filename=filename
         )
 
-        db.session.add(activity)
+
+        db.session.add(
+            activity
+        )
+
 
         success_count += 1
 
+
     db.session.commit()
+
 
     if success_count:
 
@@ -446,7 +587,10 @@ def upload():
             "success"
         )
 
-    return redirect(url_for("dashboard"))
+
+    return redirect(
+        url_for("dashboard")
+    )
 
 
 # =========================================================
@@ -457,18 +601,68 @@ def upload():
 @login_required
 def download(file_id):
 
-    user = current_user()
+    network_id = get_network_id()
 
-    if not user.can_download:
+
+    file = File.query.filter(
+        File.id == file_id,
+        File.network_id == network_id
+    ).first()
+
+
+    if not file:
 
         flash(
-            "You do not have download permission.",
+            "File not found in this network.",
             "danger"
         )
 
-        return redirect(url_for("dashboard"))
+        return redirect(
+            url_for("dashboard")
+        )
 
-    file = db.session.get(File, file_id)
+
+    log_activity(
+        "Downloaded",
+        file.original_name
+    )
+
+
+    return send_from_directory(
+
+        UPLOAD_FOLDER,
+
+        file.stored_name,
+
+        as_attachment=True,
+
+        download_name=file.original_name
+    )
+
+
+# =========================================================
+# SHARE FILE
+# =========================================================
+
+def share_serializer():
+
+    return URLSafeTimedSerializer(
+        app.config["SECRET_KEY"]
+    )
+
+
+@app.route("/share/<int:file_id>")
+@login_required
+def share_file(file_id):
+
+    network_id = get_network_id()
+
+
+    file = File.query.filter(
+        File.id == file_id,
+        File.network_id == network_id
+    ).first()
+
 
     if not file:
 
@@ -477,48 +671,36 @@ def download(file_id):
             "danger"
         )
 
-        return redirect(url_for("dashboard"))
-
-    log_activity(
-        "Downloaded",
-        file.original_name
-    )
-
-    return send_from_directory(
-        UPLOAD_FOLDER,
-        file.stored_name,
-        as_attachment=True,
-        download_name=file.original_name
-    )
-# =========================================================
-# SHARE FILE
-# =========================================================
-
-def share_serializer():
-    return URLSafeTimedSerializer(app.config["SECRET_KEY"])
+        return redirect(
+            url_for("dashboard")
+        )
 
 
-@app.route("/share/<int:file_id>")
-@login_required
-def share_file(file_id):
+    # Network ID is included inside token
+    token = share_serializer().dumps({
 
-    file = db.session.get(File, file_id)
+        "file_id": file.id,
 
-    if not file:
-        flash("File not found.", "danger")
-        return redirect(url_for("dashboard"))
+        "network_id": network_id
+    })
+
 
     share_url = url_for(
-        "download",
-        file_id=file.id,
+        "public_download",
+        token=token,
         _external=True
     )
 
+
     return render_template(
+
         "share.html",
+
         file=file,
+
         share_url=share_url
     )
+
 
 # =========================================================
 # PUBLIC SHARED DOWNLOAD
@@ -530,14 +712,20 @@ def public_download(token):
     try:
 
         data = share_serializer().loads(
+
             token,
+
             max_age=24 * 60 * 60
         )
 
     except SignatureExpired:
 
         return """
-        <h2 style="font-family:Arial;text-align:center;margin-top:100px">
+        <h2 style="
+            font-family:Arial;
+            text-align:center;
+            margin-top:100px
+        ">
             Share link expired
         </h2>
         """
@@ -545,252 +733,208 @@ def public_download(token):
     except BadSignature:
 
         return """
-        <h2 style="font-family:Arial;text-align:center;margin-top:100px">
+        <h2 style="
+            font-family:Arial;
+            text-align:center;
+            margin-top:100px
+        ">
             Invalid share link
         </h2>
         """
 
-    file = db.session.get(
-        File,
-        data.get("file_id")
-    )
+
+    network_id = get_network_id()
+
+
+    # IMPORTANT:
+    # Token network must match current network
+    if data.get("network_id") != network_id:
+
+        return """
+        <h2 style="
+            font-family:Arial;
+            text-align:center;
+            margin-top:100px
+        ">
+            This file belongs to another network.
+        </h2>
+        """
+
+
+    file = File.query.filter(
+        File.id == data.get("file_id"),
+        File.network_id == network_id
+    ).first()
+
 
     if not file:
 
         return """
-        <h2 style="font-family:Arial;text-align:center;margin-top:100px">
+        <h2 style="
+            font-family:Arial;
+            text-align:center;
+            margin-top:100px
+        ">
             File not found
         </h2>
         """
 
+
+    log_activity(
+        "Downloaded via share",
+        file.original_name
+    )
+
+
     return send_from_directory(
+
         UPLOAD_FOLDER,
+
         file.stored_name,
+
         as_attachment=True,
+
         download_name=file.original_name
     )
+
 
 # =========================================================
 # DELETE
 # =========================================================
 
-@app.route("/delete/<int:file_id>", methods=["POST"])
+@app.route(
+    "/delete/<int:file_id>",
+    methods=["POST"]
+)
 @login_required
 def delete_file(file_id):
 
-    user = current_user()
+    network_id = get_network_id()
 
-    if not user.can_delete:
 
-        flash(
-            "You do not have delete permission.",
-            "danger"
-        )
+    file = File.query.filter(
 
-        return redirect(url_for("dashboard"))
+        File.id == file_id,
 
-    file = db.session.get(File, file_id)
+        File.network_id == network_id
+
+    ).first()
+
 
     if not file:
 
         flash(
-            "File not found.",
+            "File not found in this network.",
             "danger"
         )
 
-        return redirect(url_for("dashboard"))
+        return redirect(
+            url_for("dashboard")
+        )
 
-    file_path = UPLOAD_FOLDER / file.stored_name
+
+    file_path = (
+        UPLOAD_FOLDER /
+        file.stored_name
+    )
+
 
     if file_path.exists():
+
         file_path.unlink()
+
 
     filename = file.original_name
 
+
     activity = Activity(
-        username=user.username,
+
+        network_id=network_id,
+
+        username="Guest",
+
         action="Deleted",
+
         filename=filename
     )
 
-    db.session.add(activity)
 
-    db.session.delete(file)
+    db.session.add(
+        activity
+    )
+
+
+    db.session.delete(
+        file
+    )
+
 
     db.session.commit()
+
 
     flash(
         f"{filename} deleted successfully.",
         "success"
     )
 
-    return redirect(url_for("dashboard"))
+
+    return redirect(
+        url_for("dashboard")
+    )
 
 
 # =========================================================
-# ADMIN PANEL
-# =========================================================
-@app.route("/admin")
-@admin_required
-def admin():
-
-    users = User.query.order_by(
-        User.created_at.desc()
-    ).all()
-
-    files = File.query.order_by(
-        File.uploaded_at.desc()
-    ).all()
-
-    activities = Activity.query.order_by(
-        Activity.created_at.desc()
-    ).limit(20).all()
-
-    total_storage = sum(
-        file.size for file in files
-    )
-
-    return render_template(
-        "admin.html",
-        users=users,
-        files=files,
-        activities=activities,
-        total_storage=total_storage
-    )
-
-# =========================================================
-# CREATE USER
-# =========================================================
-
-@app.route("/admin/create-user", methods=["POST"])
-@admin_required
-def create_user():
-
-    username = request.form.get(
-        "username",
-        ""
-    ).strip()
-
-    password = request.form.get(
-        "password",
-        ""
-    )
-
-    role = request.form.get(
-        "role",
-        "user"
-    )
-
-    if not username or not password:
-
-        flash(
-            "Username and password are required.",
-            "danger"
-        )
-
-        return redirect(url_for("admin"))
-
-    existing = User.query.filter_by(
-        username=username
-    ).first()
-
-    if existing:
-
-        flash(
-            "Username already exists.",
-            "danger"
-        )
-
-        return redirect(url_for("admin"))
-
-    new_user = User(
-        username=username,
-        password_hash=generate_password_hash(password),
-        role="admin" if role == "admin" else "user",
-        can_upload=True,
-        can_download=True,
-        can_delete=False
-    )
-
-    db.session.add(new_user)
-
-    db.session.commit()
-
-    flash(
-        f"User {username} created successfully.",
-        "success"
-    )
-
-    return redirect(url_for("admin"))
-
-
-# =========================================================
-# DELETE USER
-# =========================================================
-
-@app.route(
-    "/admin/delete-user/<int:user_id>",
-    methods=["POST"]
-)
-@admin_required
-def delete_user(user_id):
-
-    user = db.session.get(User, user_id)
-
-    if not user:
-
-        flash(
-            "User not found.",
-            "danger"
-        )
-
-        return redirect(url_for("admin"))
-
-    if user.role == "admin":
-
-        flash(
-            "Admin accounts cannot be deleted here.",
-            "danger"
-        )
-
-        return redirect(url_for("admin"))
-
-    username = user.username
-
-    db.session.delete(user)
-
-    db.session.commit()
-
-    flash(
-        f"User {username} deleted.",
-        "success"
-    )
-
-    return redirect(url_for("admin"))
-
-
-# =========================================================
-# API-LIKE LOCAL STATS
+# STATS
 # =========================================================
 
 @app.route("/stats")
 @login_required
 def stats():
 
-    total_files = File.query.count()
+    network_id = get_network_id()
+
+
+    total_files = File.query.filter(
+        File.network_id == network_id
+    ).count()
+
 
     total_size = db.session.query(
         db.func.sum(File.size)
+    ).filter(
+        File.network_id == network_id
     ).scalar() or 0
 
+
     return jsonify({
+
         "files": total_files,
-        "size": format_size(total_size)
+
+        "size": format_size(
+            total_size
+        )
     })
 
 
 # =========================================================
-# ERROR HANDLERS
+# NETWORK INFO
+# =========================================================
+
+@app.route("/network-info")
+def network_info():
+
+    return jsonify({
+
+        "network": get_network_id(),
+
+        "client_ip": get_client_ip(),
+
+        "message": "Air Share network workspace"
+    })
+
+
+# =========================================================
+# ERROR HANDLER
 # =========================================================
 
 @app.errorhandler(413)
@@ -801,7 +945,9 @@ def too_large(error):
         "danger"
     )
 
-    return redirect(url_for("dashboard"))
+    return redirect(
+        url_for("dashboard")
+    )
 
 
 # =========================================================
@@ -814,53 +960,100 @@ def initialize_database():
 
         db.create_all()
 
-        # Create first admin automatically
-        admin = User.query.filter_by(
-            username="admin"
-        ).first()
-
-        if not admin:
-
-            admin = User(
-                username="admin",
-                password_hash=generate_password_hash(
-                    "admin123"
-                ),
-                role="admin",
-                can_upload=True,
-                can_download=True,
-                can_delete=True
-            )
-
-            db.session.add(admin)
-
-            db.session.commit()
-
-            print("")
-            print("=" * 50)
-            print("AIR SHARE ADMIN CREATED")
-            print("Username: admin")
-            print("Password: admin123")
-            print("=" * 50)
-            print("")
-
 
 # =========================================================
-# START SERVER
+# LAN AUTO DISCOVERY
 # =========================================================
-@app.route("/make-admin")
-@login_required
-def make_admin():
 
-    user = current_user()
+zeroconf_instance = None
 
-    user.role = "admin"
 
-    db.session.commit()
+def start_lan_discovery():
 
-    session["role"] = "admin"
+    global zeroconf_instance
 
-    return redirect(url_for("dashboard"))
+
+    hostname = socket.gethostname()
+
+
+    sock = socket.socket(
+        socket.AF_INET,
+        socket.SOCK_DGRAM
+    )
+
+
+    try:
+
+        sock.connect(
+            ("8.8.8.8", 80)
+        )
+
+        local_ip = sock.getsockname()[0]
+
+
+    except Exception:
+
+        local_ip = "127.0.0.1"
+
+
+    finally:
+
+        sock.close()
+
+
+    zeroconf_instance = Zeroconf()
+
+
+    service_info = ServiceInfo(
+
+        "_http._tcp.local.",
+
+        "Air Share Pro._http._tcp.local.",
+
+        addresses=[
+            socket.inet_aton(local_ip)
+        ],
+
+        port=5000,
+
+        properties={
+
+            "name": "Air Share Pro",
+
+            "type": "file-sharing",
+
+            "url": f"http://{local_ip}:5000"
+        },
+
+        server=(
+            f"airshare-"
+            f"{hostname.lower()}.local."
+        )
+    )
+
+
+    zeroconf_instance.register_service(
+        service_info
+    )
+
+
+    print("")
+    print("=" * 60)
+    print("AIR SHARE LAN DISCOVERY")
+    print("=" * 60)
+    print(f"Device:       {hostname}")
+    print(f"IP:           {local_ip}")
+    print(
+        f"Network URL:  http://{local_ip}:5000"
+    )
+    print(
+        f"Device Name:  {hostname}:5000"
+    )
+    print("Service:      Air Share Pro")
+    print("=" * 60)
+    print("")
+
+
 # =========================================================
 # INITIALIZE DATABASE
 # =========================================================
@@ -874,17 +1067,28 @@ initialize_database()
 
 if __name__ == "__main__":
 
+    start_lan_discovery()
+
+
     print("")
     print("=" * 60)
     print("AIR SHARE PRO")
     print("=" * 60)
-    print("Local:   http://127.0.0.1:5000")
-    print("Network: http://YOUR-PC-IP:5000")
+    print(
+        "Local:   http://127.0.0.1:5000"
+    )
+    print(
+        "Network: http://YOUR-PC-IP:5000"
+    )
     print("=" * 60)
     print("")
 
+
     app.run(
+
         host="0.0.0.0",
+
         port=5000,
+
         debug=False
     )
