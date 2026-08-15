@@ -1,6 +1,13 @@
 from flask import (
-    Flask, render_template, request, redirect,
-    url_for, session, flash, send_from_directory, jsonify
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session,
+    flash,
+    send_from_directory,
+    jsonify
 )
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
@@ -8,10 +15,14 @@ from functools import wraps
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
+from itsdangerous import (
+    URLSafeTimedSerializer,
+    BadSignature,
+    SignatureExpired
+)
+from zeroconf import ServiceInfo, Zeroconf
 import os
 import uuid
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from zeroconf import ServiceInfo, Zeroconf
 import socket
 
 
@@ -33,26 +44,61 @@ db = SQLAlchemy(app)
 
 
 # =========================================================
+# ALLOWED FILE EXTENSIONS
+# =========================================================
+
+ALLOWED_EXTENSIONS = {
+    "txt",
+    "pdf",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "webp",
+    "bmp",
+    "svg",
+    "mp3",
+    "wav",
+    "ogg",
+    "mp4",
+    "webm",
+    "mov",
+    "avi",
+    "mkv",
+    "zip",
+    "rar",
+    "7z",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+    "csv",
+    "json",
+    "xml",
+    "py",
+    "js",
+    "css",
+    "html"
+}
+
+
+# =========================================================
 # FILE STORAGE
 # =========================================================
+
 BASE_DIR = Path(__file__).resolve().parent
 
-# Vercel/serverless writable temporary directory
-if os.getenv("VERCEL"):
-    UPLOAD_FOLDER = Path("/tmp/air-share-files")
+if os.environ.get("VERCEL"):
+    UPLOAD_FOLDER = Path("/tmp/shared_files")
 else:
     UPLOAD_FOLDER = BASE_DIR / "shared_files"
 
-UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-
-ALLOWED_EXTENSIONS = {
-    "pdf", "doc", "docx", "xls", "xlsx",
-    "ppt", "pptx", "txt", "csv",
-    "jpg", "jpeg", "png", "gif", "webp",
-    "mp4", "mkv", "avi", "mov",
-    "mp3", "wav",
-    "zip", "rar", "7z"
-}
+UPLOAD_FOLDER.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
 
 # =========================================================
@@ -111,11 +157,13 @@ class File(db.Model):
         primary_key=True
     )
 
-    # IMPORTANT:
     # Each network gets its own workspace
+    #
+    # nullable=True is intentional because an existing
+    # SQLite database may already contain old rows.
     network_id = db.Column(
         db.String(255),
-        nullable=False,
+        nullable=True,
         index=True
     )
 
@@ -158,7 +206,7 @@ class Activity(db.Model):
 
     network_id = db.Column(
         db.String(255),
-        nullable=False,
+        nullable=True,
         index=True
     )
 
@@ -187,13 +235,17 @@ class Activity(db.Model):
 def get_client_ip():
 
     # Cloudflare sends the real visitor IP here
-    cf_ip = request.headers.get("CF-Connecting-IP")
+    cf_ip = request.headers.get(
+        "CF-Connecting-IP"
+    )
 
     if cf_ip:
         return cf_ip.strip()
 
     # Other reverse proxies
-    forwarded = request.headers.get("X-Forwarded-For")
+    forwarded = request.headers.get(
+        "X-Forwarded-For"
+    )
 
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -215,8 +267,9 @@ def get_network_id():
         parts = ip.split(".")
 
         if len(parts) == 4:
-            return f"lan-192.168.{parts[2]}"
-
+            return (
+                f"lan-192.168.{parts[2]}"
+            )
 
     # 10.x.x.x
     if ip.startswith("10."):
@@ -224,8 +277,9 @@ def get_network_id():
         parts = ip.split(".")
 
         if len(parts) == 4:
-            return f"lan-10.{parts[1]}.{parts[2]}"
-
+            return (
+                f"lan-10.{parts[1]}.{parts[2]}"
+            )
 
     # 172.16.x.x - 172.31.x.x
     if ip.startswith("172."):
@@ -238,24 +292,21 @@ def get_network_id():
                 second = int(parts[1])
 
                 if 16 <= second <= 31:
-                    return f"lan-172.{parts[1]}.{parts[2]}"
+                    return (
+                        f"lan-172."
+                        f"{parts[1]}."
+                        f"{parts[2]}"
+                    )
 
             except ValueError:
                 pass
-
 
     # -----------------------------------------------------
     # PUBLIC / CLOUDFLARE
     # -----------------------------------------------------
 
-    # For Cloudflare/internet access we use the client
-    # public IP as the workspace identity.
-    #
-    # Devices behind the same internet connection normally
-    # share this public IP.
-    #
-    # Direct LAN access gives actual LAN isolation above.
-
+    # For public access, use the client public IP
+    # as the workspace identity.
     return f"public-{ip}"
 
 
@@ -267,7 +318,10 @@ def allowed_file(filename):
 
     return (
         "." in filename
-        and filename.rsplit(".", 1)[1].lower()
+        and filename.rsplit(
+            ".",
+            1
+        )[1].lower()
         in ALLOWED_EXTENSIONS
     )
 
@@ -275,7 +329,10 @@ def allowed_file(filename):
 def get_extension(filename):
 
     if "." in filename:
-        return filename.rsplit(".", 1)[1].lower()
+        return filename.rsplit(
+            ".",
+            1
+        )[1].lower()
 
     return "file"
 
@@ -289,9 +346,13 @@ def format_size(size):
         return f"{size / 1024:.1f} KB"
 
     if size < 1024 * 1024 * 1024:
-        return f"{size / (1024 * 1024):.1f} MB"
+        return (
+            f"{size / (1024 * 1024):.1f} MB"
+        )
 
-    return f"{size / (1024 * 1024 * 1024):.2f} GB"
+    return (
+        f"{size / (1024 * 1024 * 1024):.2f} GB"
+    )
 
 
 @app.template_filter("filesize")
@@ -304,9 +365,6 @@ def filesize_filter(size):
 # =========================================================
 
 def current_user():
-
-    # No login required anymore.
-    # This fake user keeps existing dashboard templates working.
 
     return SimpleNamespace(
         id=0,
@@ -323,7 +381,7 @@ def login_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
 
-        # LOGIN COMPLETELY DISABLED
+        # Login completely disabled
         return func(*args, **kwargs)
 
     return wrapper
@@ -334,7 +392,7 @@ def admin_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
 
-        # Admin panel disabled for public Air Share mode.
+        # Admin panel disabled for public Air Share mode
         return func(*args, **kwargs)
 
     return wrapper
@@ -344,7 +402,10 @@ def admin_required(func):
 # ACTIVITY
 # =========================================================
 
-def log_activity(action, filename=None):
+def log_activity(
+    action,
+    filename=None
+):
 
     activity = Activity(
         network_id=get_network_id(),
@@ -373,10 +434,12 @@ def index():
 # OLD LOGIN ROUTES
 # =========================================================
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route(
+    "/login",
+    methods=["GET", "POST"]
+)
 def login():
 
-    # Login is no longer required.
     return redirect(
         url_for("dashboard")
     )
@@ -407,7 +470,6 @@ def dashboard():
         ""
     ).strip()
 
-
     if search:
 
         files = File.query.filter(
@@ -427,11 +489,9 @@ def dashboard():
             File.uploaded_at.desc()
         ).all()
 
-
     total_files = File.query.filter(
         File.network_id == network_id
     ).count()
-
 
     total_size = db.session.query(
         db.func.sum(File.size)
@@ -439,13 +499,11 @@ def dashboard():
         File.network_id == network_id
     ).scalar() or 0
 
-
     recent_activity = Activity.query.filter(
         Activity.network_id == network_id
     ).order_by(
         Activity.created_at.desc()
     ).limit(10).all()
-
 
     return render_template(
         "dashboard.html",
@@ -462,14 +520,16 @@ def dashboard():
 # UPLOAD
 # =========================================================
 
-@app.route("/upload", methods=["POST"])
+@app.route(
+    "/upload",
+    methods=["POST"]
+)
 @login_required
 def upload():
 
     uploaded_files = request.files.getlist(
         "files"
     )
-
 
     if not uploaded_files:
 
@@ -482,11 +542,9 @@ def upload():
             url_for("dashboard")
         )
 
-
     network_id = get_network_id()
 
     success_count = 0
-
 
     for uploaded_file in uploaded_files:
 
@@ -496,15 +554,12 @@ def upload():
         if not uploaded_file.filename:
             continue
 
-
         filename = secure_filename(
             uploaded_file.filename
         )
 
-
         if not filename:
             continue
-
 
         if not allowed_file(filename):
 
@@ -515,73 +570,51 @@ def upload():
 
             continue
 
-
         extension = get_extension(
             filename
         )
-
 
         unique_name = (
             f"{uuid.uuid4().hex}_{filename}"
         )
 
-
         destination = (
             UPLOAD_FOLDER / unique_name
         )
-
 
         uploaded_file.save(
             destination
         )
 
-
         file_size = destination.stat().st_size
 
-
         new_file = File(
-
             network_id=network_id,
-
             original_name=filename,
-
             stored_name=unique_name,
-
             size=file_size,
-
             extension=extension,
-
             uploaded_by="Guest"
         )
-
 
         db.session.add(
             new_file
         )
 
-
         activity = Activity(
-
             network_id=network_id,
-
             username="Guest",
-
             action="Uploaded",
-
             filename=filename
         )
-
 
         db.session.add(
             activity
         )
 
-
         success_count += 1
 
-
     db.session.commit()
-
 
     if success_count:
 
@@ -589,7 +622,6 @@ def upload():
             f"{success_count} file(s) uploaded successfully.",
             "success"
         )
-
 
     return redirect(
         url_for("dashboard")
@@ -600,18 +632,18 @@ def upload():
 # DOWNLOAD
 # =========================================================
 
-@app.route("/download/<int:file_id>")
+@app.route(
+    "/download/<int:file_id>"
+)
 @login_required
 def download(file_id):
 
     network_id = get_network_id()
 
-
     file = File.query.filter(
         File.id == file_id,
         File.network_id == network_id
     ).first()
-
 
     if not file:
 
@@ -624,21 +656,15 @@ def download(file_id):
             url_for("dashboard")
         )
 
-
     log_activity(
         "Downloaded",
         file.original_name
     )
 
-
     return send_from_directory(
-
         UPLOAD_FOLDER,
-
         file.stored_name,
-
         as_attachment=True,
-
         download_name=file.original_name
     )
 
@@ -654,18 +680,18 @@ def share_serializer():
     )
 
 
-@app.route("/share/<int:file_id>")
+@app.route(
+    "/share/<int:file_id>"
+)
 @login_required
 def share_file(file_id):
 
     network_id = get_network_id()
 
-
     file = File.query.filter(
         File.id == file_id,
         File.network_id == network_id
     ).first()
-
 
     if not file:
 
@@ -678,15 +704,10 @@ def share_file(file_id):
             url_for("dashboard")
         )
 
-
-    # Network ID is included inside token
     token = share_serializer().dumps({
-
         "file_id": file.id,
-
         "network_id": network_id
     })
-
 
     share_url = url_for(
         "public_download",
@@ -694,13 +715,9 @@ def share_file(file_id):
         _external=True
     )
 
-
     return render_template(
-
         "share.html",
-
         file=file,
-
         share_url=share_url
     )
 
@@ -709,15 +726,15 @@ def share_file(file_id):
 # PUBLIC SHARED DOWNLOAD
 # =========================================================
 
-@app.route("/shared/<token>")
+@app.route(
+    "/shared/<token>"
+)
 def public_download(token):
 
     try:
 
         data = share_serializer().loads(
-
             token,
-
             max_age=24 * 60 * 60
         )
 
@@ -745,11 +762,8 @@ def public_download(token):
         </h2>
         """
 
-
     network_id = get_network_id()
 
-
-    # IMPORTANT:
     # Token network must match current network
     if data.get("network_id") != network_id:
 
@@ -763,12 +777,10 @@ def public_download(token):
         </h2>
         """
 
-
     file = File.query.filter(
         File.id == data.get("file_id"),
         File.network_id == network_id
     ).first()
-
 
     if not file:
 
@@ -782,21 +794,15 @@ def public_download(token):
         </h2>
         """
 
-
     log_activity(
         "Downloaded via share",
         file.original_name
     )
 
-
     return send_from_directory(
-
         UPLOAD_FOLDER,
-
         file.stored_name,
-
         as_attachment=True,
-
         download_name=file.original_name
     )
 
@@ -814,15 +820,10 @@ def delete_file(file_id):
 
     network_id = get_network_id()
 
-
     file = File.query.filter(
-
         File.id == file_id,
-
         File.network_id == network_id
-
     ).first()
-
 
     if not file:
 
@@ -835,51 +836,37 @@ def delete_file(file_id):
             url_for("dashboard")
         )
 
-
     file_path = (
         UPLOAD_FOLDER /
         file.stored_name
     )
 
-
     if file_path.exists():
-
         file_path.unlink()
-
 
     filename = file.original_name
 
-
     activity = Activity(
-
         network_id=network_id,
-
         username="Guest",
-
         action="Deleted",
-
         filename=filename
     )
-
 
     db.session.add(
         activity
     )
 
-
     db.session.delete(
         file
     )
 
-
     db.session.commit()
-
 
     flash(
         f"{filename} deleted successfully.",
         "success"
     )
-
 
     return redirect(
         url_for("dashboard")
@@ -896,11 +883,9 @@ def stats():
 
     network_id = get_network_id()
 
-
     total_files = File.query.filter(
         File.network_id == network_id
     ).count()
-
 
     total_size = db.session.query(
         db.func.sum(File.size)
@@ -908,14 +893,9 @@ def stats():
         File.network_id == network_id
     ).scalar() or 0
 
-
     return jsonify({
-
         "files": total_files,
-
-        "size": format_size(
-            total_size
-        )
+        "size": format_size(total_size)
     })
 
 
@@ -927,11 +907,8 @@ def stats():
 def network_info():
 
     return jsonify({
-
         "network": get_network_id(),
-
         "client_ip": get_client_ip(),
-
         "message": "Air Share network workspace"
     })
 
@@ -961,7 +938,48 @@ def initialize_database():
 
     with app.app_context():
 
+        # Create all tables that don't exist
         db.create_all()
+
+        try:
+
+            # Check existing SQLite file table
+            result = db.session.execute(
+                db.text(
+                    "PRAGMA table_info(file)"
+                )
+            ).fetchall()
+
+            columns = [
+                row[1]
+                for row in result
+            ]
+
+            # Add network_id if old database doesn't have it
+            if "network_id" not in columns:
+
+                db.session.execute(
+                    db.text(
+                        "ALTER TABLE file "
+                        "ADD COLUMN network_id VARCHAR(255)"
+                    )
+                )
+
+                db.session.commit()
+
+                print(
+                    "Database migration: "
+                    "network_id added to file table."
+                )
+
+        except Exception as e:
+
+            db.session.rollback()
+
+            print(
+                "Database migration error:",
+                e
+            )
 
 
 # =========================================================
@@ -975,15 +993,12 @@ def start_lan_discovery():
 
     global zeroconf_instance
 
-
     hostname = socket.gethostname()
-
 
     sock = socket.socket(
         socket.AF_INET,
         socket.SOCK_DGRAM
     )
-
 
     try:
 
@@ -993,59 +1008,46 @@ def start_lan_discovery():
 
         local_ip = sock.getsockname()[0]
 
-
     except Exception:
 
         local_ip = "127.0.0.1"
-
 
     finally:
 
         sock.close()
 
-
     zeroconf_instance = Zeroconf()
 
-
     service_info = ServiceInfo(
-
         "_http._tcp.local.",
-
         "Air Share Pro._http._tcp.local.",
-
         addresses=[
             socket.inet_aton(local_ip)
         ],
-
         port=5000,
-
         properties={
-
             "name": "Air Share Pro",
-
             "type": "file-sharing",
-
             "url": f"http://{local_ip}:5000"
         },
-
         server=(
             f"airshare-"
             f"{hostname.lower()}.local."
         )
     )
 
-
     zeroconf_instance.register_service(
         service_info
     )
-
 
     print("")
     print("=" * 60)
     print("AIR SHARE LAN DISCOVERY")
     print("=" * 60)
     print(f"Device:       {hostname}")
-    print(f"IP:           {local_ip}")
+    print(
+        f"IP:           {local_ip}"
+    )
     print(
         f"Network URL:  http://{local_ip}:5000"
     )
@@ -1072,7 +1074,6 @@ if __name__ == "__main__":
 
     start_lan_discovery()
 
-
     print("")
     print("=" * 60)
     print("AIR SHARE PRO")
@@ -1086,12 +1087,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print("")
 
-
     app.run(
-
         host="0.0.0.0",
-
         port=5000,
-
         debug=False
     )
